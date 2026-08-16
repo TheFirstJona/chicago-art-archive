@@ -22,3 +22,19 @@
       </nav>
     </div>
   </header>
+
+  <main class="container main-content">
+    <section class="controls-section" aria-label="Search and controls">
+      <form id="search-form" class="search-form">
+        <label for="search-input" class="sr-only">Search artworks</label>
+        <input 
+          type="text" 
+          id="search-input" 
+          placeholder="Search by artwork title, artist, or style." 
+          autocomplete="off"
+        />
+        <button type="submit" class="btn-search">Search</button>
+        <button type="button" id="btn-clear" class="btn-clear hidden">Clear</button>
+      </form>
+    </section>
+
