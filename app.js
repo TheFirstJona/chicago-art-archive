@@ -3,6 +3,7 @@ const ARTIC_BASE_URL = 'https://api.artic.edu/api/v1';
 
 // State management
 let currentView = 'artworks';
+let isSearchActive = false;
 
 // DOM Elements
 const artworksGrid = document.getElementById('artworks-grid');
@@ -12,6 +13,11 @@ const exhibitionsView = document.getElementById('exhibitions-view');
 const exhibitionsGrid = document.getElementById('exhibitions-grid');
 const navArtworksBtn = document.getElementById('nav-artworks');
 const navExhibitionsBtn = document.getElementById('nav-exhibitions');
+
+// Search Form DOM Elements
+const searchForm = document.getElementById('search-form');
+const searchInput = document.getElementById('search-input');
+const btnClear = document.getElementById('btn-clear');
 
 // Switch views and fetch corresponding data
 function switchView(targetView) {
@@ -53,6 +59,43 @@ async function fetchArtworks() {
   } catch (error) {
     console.error('Error fetching artworks:', error);
     showStatus('Failed to load artworks. Please try again.', 'error');
+  }
+}
+
+// Search artworks by keyword
+async function searchArtworks(query) {
+  try {
+    showStatus(`Searching archive for "${query}"...`, 'loading');
+
+    // Switch to artworks view automatically if user searches while on exhibitions tab
+    if (currentView !== 'artworks') {
+      currentView = 'artworks';
+      navArtworksBtn.classList.add('active');
+      navExhibitionsBtn.classList.remove('active');
+      artworksView.classList.remove('hidden');
+      exhibitionsView.classList.add('hidden');
+    }
+
+    const endpoint = `${ARTIC_BASE_URL}/artworks/search?q=${encodeURIComponent(query)}&fields=id,title,artist_display,date_display,medium_display,image_id&limit=12`;
+    const response = await fetch(endpoint);
+
+    if (!response.ok) {
+      throw new Error(`Search request error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.data || data.data.length === 0) {
+      artworksGrid.innerHTML = '';
+      showStatus(`No artworks found matching "${query}". Try another search term.`, 'info');
+      return;
+    }
+
+    hideStatus();
+    renderArtworks(data.data);
+  } catch (error) {
+    console.error('Error executing search:', error);
+    showStatus('An error occurred while searching. Please try again.', 'error');
   }
 }
 
@@ -165,9 +208,41 @@ function hideStatus() {
   statusMessage.className = 'status-message hidden';
 }
 
+// Search state reset helper
+function resetSearchState() {
+  isSearchActive = false;
+  searchInput.value = '';
+  btnClear.classList.add('hidden');
+}
+
 // Event Listeners for tab navigation
 navArtworksBtn.addEventListener('click', () => switchView('artworks'));
 navExhibitionsBtn.addEventListener('click', () => switchView('exhibitions'));
+
+// Event Listener for search form submission
+searchForm.addEventListener('submit', (e) => {
+  e.preventDefault(); // Prevents full page reload
+  
+  const query = searchInput.value.trim();
+  if (!query) {
+    showStatus('Please enter a keyword to search.', 'error');
+    return;
+  }
+
+  isSearchActive = true;
+  btnClear.classList.remove('hidden');
+  searchArtworks(query);
+});
+
+// Event Listener for Clear Button
+btnClear.addEventListener('click', () => {
+  resetSearchState();
+  if (currentView === 'artworks') {
+    fetchArtworks();
+  } else {
+    fetchExhibitions();
+  }
+});
 
 // Initial load
 fetchArtworks();
