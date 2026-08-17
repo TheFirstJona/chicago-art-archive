@@ -1,11 +1,40 @@
 // Base API URL for Art Institute of Chicago
 const ARTIC_BASE_URL = 'https://api.artic.edu/api/v1';
 
+// State management
+let currentView = 'artworks';
+
 // DOM Elements
 const artworksGrid = document.getElementById('artworks-grid');
 const statusMessage = document.getElementById('status-message');
+const artworksView = document.getElementById('artworks-view');
+const exhibitionsView = document.getElementById('exhibitions-view');
+const exhibitionsGrid = document.getElementById('exhibitions-grid');
+const navArtworksBtn = document.getElementById('nav-artworks');
+const navExhibitionsBtn = document.getElementById('nav-exhibitions');
 
-// Fetch artworks from ARTIC API and render them to the DOM 
+// Switch views and fetch corresponding data
+function switchView(targetView) {
+  if (currentView === targetView) return;
+
+  currentView = targetView;
+
+  if (targetView === 'artworks') {
+    navArtworksBtn.classList.add('active');
+    navExhibitionsBtn.classList.remove('active');
+    artworksView.classList.remove('hidden');
+    exhibitionsView.classList.add('hidden');
+    fetchArtworks();
+  } else if (targetView === 'exhibitions') {
+    navExhibitionsBtn.classList.add('active');
+    navArtworksBtn.classList.remove('active');
+    exhibitionsView.classList.remove('hidden');
+    artworksView.classList.add('hidden');
+    fetchExhibitions();
+  }
+}
+
+// Fetch artworks from ARTIC API and render them to the DOM (Endpoint 1)
 async function fetchArtworks() {
   try {
     showStatus('Loading artworks from the Chicago Art Archive...', 'loading');
@@ -65,6 +94,67 @@ function renderArtworks(artworks) {
   });
 }
 
+// Fetch exhibitions from ARTIC API (Endpoint 2)
+async function fetchExhibitions() {
+  try {
+    showStatus('Loading exhibitions...', 'loading');
+
+    const endpoint = `${ARTIC_BASE_URL}/exhibitions?fields=id,title,short_description,image_url,aic_start_at,aic_end_at,status&limit=12`;
+    const response = await fetch(endpoint);
+
+    if (!response.ok) {
+      throw new Error(`Network response error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    hideStatus();
+    renderExhibitions(data.data);
+  } catch (error) {
+    console.error('Error fetching exhibitions:', error);
+    showStatus('Failed to load exhibitions. Please check your connection and try again.', 'error');
+  }
+}
+
+// Render exhibition cards to the DOM
+function renderExhibitions(exhibitions) {
+  exhibitionsGrid.innerHTML = '';
+
+  if (!exhibitions || exhibitions.length === 0) {
+    showStatus('No exhibitions found.', 'info');
+    return;
+  }
+
+  exhibitions.forEach(exhibit => {
+    const card = document.createElement('article');
+    card.className = 'card';
+
+    let imageHtml = '<div class="card-image-wrap"><span class="card-image-placeholder">No promotional image</span></div>';
+    if (exhibit.image_url) {
+      imageHtml = `
+        <div class="card-image-wrap">
+          <img src="${exhibit.image_url}" alt="${exhibit.title || 'Exhibition banner'}" loading="lazy" />
+        </div>
+      `;
+    }
+
+    // Format dates nicely if available
+    const startDate = exhibit.aic_start_at ? new Date(exhibit.aic_start_at).toLocaleDateString() : 'TBD';
+    const endDate = exhibit.aic_end_at ? new Date(exhibit.aic_end_at).toLocaleDateString() : 'Ongoing';
+
+    card.innerHTML = `
+      ${imageHtml}
+      <div class="card-body">
+        <h3 class="card-title">${exhibit.title || 'Untitled Exhibition'}</h3>
+        <p class="card-meta"><strong>Dates:</strong> ${startDate} – ${endDate}</p>
+        <p class="card-meta"><strong>Status:</strong> ${exhibit.status || 'Active'}</p>
+        <p class="card-description">${exhibit.short_description || 'No summary available for this exhibition.'}</p>
+      </div>
+    `;
+
+    exhibitionsGrid.appendChild(card);
+  });
+}
+
 // Display user-facing status / error banners
 function showStatus(message, type) {
   statusMessage.textContent = message;
@@ -74,6 +164,10 @@ function showStatus(message, type) {
 function hideStatus() {
   statusMessage.className = 'status-message hidden';
 }
+
+// Event Listeners for tab navigation
+navArtworksBtn.addEventListener('click', () => switchView('artworks'));
+navExhibitionsBtn.addEventListener('click', () => switchView('exhibitions'));
 
 // Initial load
 fetchArtworks();
